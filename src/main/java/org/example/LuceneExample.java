@@ -5,7 +5,9 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.analysis.es.SpanishAnalyzer;
 import org.apache.lucene.document.Document;
@@ -49,22 +51,31 @@ public class LuceneExample {
 
     BufferedReader reader = new BufferedReader(new FileReader(jsonFile));
     String line;
+    Set<String> existingArtistAndSongNames = new HashSet<String>();
     while ((line = reader.readLine()) != null) {
       JSONObject object = new JSONObject(line);
       if (object.getString("type").equals("song_text")) {
-        JSONArray songTextLines = object.getJSONArray("song_text");
-        StringBuilder songText = new StringBuilder();
-        for (int i = 0; i < songTextLines.length(); i++) {
-          String songTextLine = songTextLines.getString(i);
-          songText.append(songTextLine.trim());
-          songText.append("\n");
-        }
+        String artistName = object.getString("artist_name");
+        String songName = object.getString("song_name");
 
-        Document doc = new Document();
-        doc.add(new TextField("song_name", object.getString("song_name"),
-          Field.Store.YES));
-        doc.add(new TextField("song_text", songText.toString(), Field.Store.YES));
-        indexWriter.addDocument(doc);
+        String artistAndSongName = artistName + " - " + songName;
+        if (!existingArtistAndSongNames.contains(artistAndSongName)) {
+          existingArtistAndSongNames.add(artistAndSongName);
+
+          JSONArray songTextLines = object.getJSONArray("song_text");
+          StringBuilder songText = new StringBuilder();
+          for (int i = 0; i < songTextLines.length(); i++) {
+            String songTextLine = songTextLines.getString(i);
+            songText.append(songTextLine.trim());
+            songText.append("\n");
+          }
+
+          Document doc = new Document();
+          doc.add(new TextField("artist_name", artistName, Field.Store.YES));
+          doc.add(new TextField("song_name", songName, Field.Store.YES));
+          doc.add(new TextField("song_text", songText.toString(), Field.Store.YES));
+          indexWriter.addDocument(doc);
+        }
       }
     }
     indexWriter.close();
