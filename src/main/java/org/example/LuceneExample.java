@@ -14,6 +14,7 @@ import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.analysis.es.SpanishAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
+import org.apache.lucene.document.IntField;
 import org.apache.lucene.document.StringField;
 import org.apache.lucene.document.TextField;
 import org.apache.lucene.index.CorruptIndexException;
@@ -62,7 +63,7 @@ public class LuceneExample {
 
     BufferedReader reader = new BufferedReader(new FileReader(jsonFile));
     String line;
-    Set<String> loadedSourceNums = new HashSet<String>();
+    Set<Integer> loadedSourceNums = new HashSet<Integer>();
     while ((line = reader.readLine()) != null) {
       JSONObject object = new JSONObject(line);
       if (object.getString("type").equals("song_text")) {
@@ -77,7 +78,7 @@ public class LuceneExample {
           if (!matcher.matches()) {
             throw new RuntimeException("Couldn't parse path '" + path + "'");
           }
-          String sourceNum = "musica-" + matcher.group(1);
+          int sourceNum = Integer.parseInt(matcher.group(1));
           if (!loadedSourceNums.contains(sourceNum)) {
             loadedSourceNums.add(sourceNum);
 
@@ -90,7 +91,7 @@ public class LuceneExample {
             }
 
             Document doc = new Document();
-            doc.add(new StringField("source_num", sourceNum, Field.Store.YES));
+            doc.add(new IntField("source_num", sourceNum, Field.Store.YES));
             doc.add(new TextField("artist_name", artistName, Field.Store.YES));
             doc.add(new TextField("song_name", songName, Field.Store.YES));
             doc.add(new TextField("song_text", songText.toString(), Field.Store.YES));
