@@ -14,6 +14,11 @@ import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.queryparser.classic.MultiFieldQueryParser;
 import org.apache.lucene.queryparser.classic.QueryParser;
+import org.apache.lucene.search.highlight.Formatter;
+import org.apache.lucene.search.highlight.Highlighter;
+import org.apache.lucene.search.highlight.QueryScorer;
+import org.apache.lucene.search.highlight.SimpleHTMLFormatter;
+import org.apache.lucene.search.highlight.SimpleSpanFragmenter;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
@@ -73,8 +78,33 @@ public class WebServer extends AbstractHandler {
             int docId = hits[i].doc;
             Document doc = searcher.doc(docId);
             response.getWriter().println(
-              "<li>" + doc.get("artist_name") + " - " +
-              doc.get("song_name") + "</li>");
+              "<li>" + doc.get("artist_name") + " - " + doc.get("song_name"));
+
+            Formatter formatter = new SimpleHTMLFormatter("<b>", "</b>");
+            QueryScorer queryScorer = new QueryScorer(query);
+            Highlighter highlighter = new Highlighter(formatter, queryScorer);
+            highlighter.setTextFragmenter(new SimpleSpanFragmenter(queryScorer, 60));
+            highlighter.setMaxDocCharsToAnalyze(Integer.MAX_VALUE);
+            String out;
+            try {
+              out = highlighter.getBestFragment(
+                analyzer, "song_text", doc.get("song_text"));
+            } catch (
+                org.apache.lucene.search.highlight.InvalidTokenOffsetsException e) {
+              throw new RuntimeException(e);
+            }
+            response.getWriter().println(
+              "<pre style='border:1px black solid'>" + out + "</pre>");
+
+            response.getWriter().println("<ul>");
+            for (String line : doc.get("song_text").split("\n")) {
+              if (line.contains(queryParam)) {
+                response.getWriter().println("<li><tt>" + line + "</tt></li>");
+              }
+            }
+            response.getWriter().println("</ul>");
+
+            response.getWriter().println("</li>");
           }
           response.getWriter().println("</ul>");
         }
