@@ -73,7 +73,8 @@ public class WebServer extends AbstractHandler {
             int docId = hits[i].doc;
             Document doc = searcher.doc(docId);
             response.getWriter().println(
-              "<li>" + doc.get("song_name") + "</li>");
+              "<li>" + doc.get("artist_name") + " - " +
+              doc.get("song_name") + "</li>");
           }
           response.getWriter().println("</ul>");
         }
