@@ -12,6 +12,7 @@ import org.apache.lucene.index.CorruptIndexException;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.index.Term;
 import org.apache.lucene.queryparser.classic.MultiFieldQueryParser;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.highlight.Formatter;
@@ -22,6 +23,7 @@ import org.apache.lucene.search.highlight.SimpleSpanFragmenter;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.search.NumericRangeQuery;
 import org.apache.lucene.search.TopDocsCollector;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
@@ -122,6 +124,40 @@ public class WebServer extends AbstractHandler {
           "</form>"
         );
       }
+    } else if (request.getPathInfo().equals("/song.json")) {
+      String sourceNum = request.getParameter("source_num");
+      IndexReader reader = DirectoryReader.open(FSDirectory.open(indexFile.toPath()));
+      IndexSearcher searcher = new IndexSearcher(reader);
+      Query query = NumericRangeQuery.newIntRange("source_num",
+          Integer.parseInt(sourceNum), Integer.parseInt(sourceNum), true, true);
+
+      ScoreDoc[] hits = searcher.search(query, 1).scoreDocs;
+      if (hits.length == 0) {
+        response.setContentType("text/plain;charset=utf-8");
+        response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+        response.getWriter().println("404 Not Found");
+      } else if (hits.length == 1) {
+        int docId = hits[0].doc;
+        Document doc = searcher.doc(docId);
+
+        JSONArray lines = new JSONArray();
+        for (String line : doc.get("song_text").split("\n")) {
+          lines.put(line);
+        }
+
+        JSONObject result = new JSONObject();
+        result.put("source_num",  doc.get("source_num"));
+        result.put("artist_name", doc.get("artist_name"));
+        result.put("song_name",   doc.get("song_name"));
+        result.put("lines",       lines);
+
+        response.setContentType("application/json;charset=utf-8");
+        response.setStatus(HttpServletResponse.SC_OK);
+        response.getWriter().println(result.toString());
+      } else {
+        throw new RuntimeException("Unexpected multiple results");
+      }
+
     } else if (request.getPathInfo().equals("/query.json")) {
       String queryParam = request.getParameter("query");
       SpanishAnalyzer analyzer = new SpanishAnalyzer();
