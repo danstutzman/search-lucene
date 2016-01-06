@@ -6,11 +6,13 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.ServletException;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
+import org.apache.lucene.analysis.es.SpanishAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.CorruptIndexException;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.queryparser.classic.MultiFieldQueryParser;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
@@ -19,12 +21,13 @@ import org.apache.lucene.search.TopDocsCollector;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.LockObtainFailedException;
+import org.apache.lucene.util.Version;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.handler.AbstractHandler;
 
 public class WebServer extends AbstractHandler {
-  private static final int HITS_PER_PAGE = 10;
+  private static final int HITS_PER_PAGE = 100;
 
   private File indexFile;
 
@@ -47,9 +50,12 @@ public class WebServer extends AbstractHandler {
             System.out.println(doc.get("body"));
           }
         } else {
-          StandardAnalyzer analyzer = new StandardAnalyzer();
+          //StandardAnalyzer analyzer = new StandardAnalyzer();
+          SpanishAnalyzer analyzer = new SpanishAnalyzer();
 
-          QueryParser parser = new QueryParser("body", analyzer);
+          //QueryParser parser = new QueryParser("body", analyzer);
+          QueryParser parser = new MultiFieldQueryParser(
+            new String[] {"song_name", "song_text"}, analyzer);
           Query query;
           try {
             query = parser.parse(queryParam);
@@ -58,7 +64,7 @@ public class WebServer extends AbstractHandler {
           }
 
           IndexSearcher searcher = new IndexSearcher(reader);
-          ScoreDoc[] hits = searcher.search(query, 10).scoreDocs;
+          ScoreDoc[] hits = searcher.search(query, HITS_PER_PAGE).scoreDocs;
 
           response.setContentType("text/html;charset=utf-8");
           response.setStatus(HttpServletResponse.SC_OK);
@@ -67,7 +73,7 @@ public class WebServer extends AbstractHandler {
             int docId = hits[i].doc;
             Document doc = searcher.doc(docId);
             response.getWriter().println(
-              "<li>" + docId + ": " + doc.get("body") + "</li>");
+              "<li>" + doc.get("song_name") + "</li>");
           }
           response.getWriter().println("</ul>");
         }
