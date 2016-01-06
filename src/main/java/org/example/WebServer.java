@@ -27,6 +27,8 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.LockObtainFailedException;
 import org.apache.lucene.util.Version;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.handler.AbstractHandler;
@@ -120,6 +122,50 @@ public class WebServer extends AbstractHandler {
           "</form>"
         );
       }
+    } else if (request.getPathInfo().equals("/query.json")) {
+      String queryParam = request.getParameter("query");
+      SpanishAnalyzer analyzer = new SpanishAnalyzer();
+
+      //QueryParser parser = new QueryParser("body", analyzer);
+      QueryParser parser = new MultiFieldQueryParser(
+        new String[] {"song_name", "song_text"}, analyzer);
+      Query query;
+      try {
+        query = parser.parse(queryParam);
+      } catch (org.apache.lucene.queryparser.classic.ParseException e) {
+        throw new RuntimeException(e);
+      }
+
+      IndexReader reader = DirectoryReader.open(FSDirectory.open(indexFile.toPath()));
+      IndexSearcher searcher = new IndexSearcher(reader);
+      ScoreDoc[] hits = searcher.search(query, HITS_PER_PAGE).scoreDocs;
+
+      JSONArray results = new JSONArray();
+      for (int i = 0; i < hits.length; ++i) {
+        int docId = hits[i].doc;
+        Document doc = searcher.doc(docId);
+
+        JSONArray lines = new JSONArray();
+        for (String line : doc.get("song_text").split("\n")) {
+          if (line.contains(queryParam)) {
+            lines.put(line);
+          }
+        }
+
+        JSONObject result = new JSONObject();
+        result.put("source_num",  doc.get("source_num"));
+        result.put("artist_name", doc.get("artist_name"));
+        result.put("song_name",   doc.get("song_name"));
+        result.put("lines",       lines);
+        results.put(result);
+      }
+
+      response.setContentType("application/json;charset=utf-8");
+      response.setStatus(HttpServletResponse.SC_OK);
+      JSONObject resultsWrapped = new JSONObject();
+      resultsWrapped.put("results", results);
+      response.getWriter().println(resultsWrapped.toString());
+
     } else {
       response.setContentType("text/plain;charset=utf-8");
       response.setStatus(HttpServletResponse.SC_NOT_FOUND);
