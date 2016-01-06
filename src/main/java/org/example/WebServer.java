@@ -78,7 +78,9 @@ public class WebServer extends AbstractHandler {
             int docId = hits[i].doc;
             Document doc = searcher.doc(docId);
             response.getWriter().println(
-              "<li>" + doc.get("artist_name") + " - " + doc.get("song_name"));
+              "<li>" +
+                doc.get("source_num") + ": " +
+                doc.get("artist_name") + " - " + doc.get("song_name"));
 
             Formatter formatter = new SimpleHTMLFormatter("<b>", "</b>");
             QueryScorer queryScorer = new QueryScorer(query);

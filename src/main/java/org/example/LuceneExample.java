@@ -5,6 +5,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -35,6 +36,9 @@ public class LuceneExample {
   private static Pattern PORTUGUES_PATTERN =
     Pattern.compile("portugues", Pattern.CASE_INSENSITIVE);
 
+  private static Pattern MUSICA_PATH_PATTERN =
+    Pattern.compile("letras.asp\\?letra=([0-9]+)");
+
   public static void main(String[] args) throws CorruptIndexException,
       LockObtainFailedException, IOException {
     if (args.length < 1) {
@@ -58,18 +62,24 @@ public class LuceneExample {
 
     BufferedReader reader = new BufferedReader(new FileReader(jsonFile));
     String line;
-    Set<String> existingArtistAndSongNames = new HashSet<String>();
+    Set<String> loadedSourceNums = new HashSet<String>();
     while ((line = reader.readLine()) != null) {
       JSONObject object = new JSONObject(line);
       if (object.getString("type").equals("song_text")) {
         String artistName = object.getString("artist_name");
         String songName = object.getString("song_name");
+        String path = object.getString("path");
 
         if (!ESPANOL_PATTERN.matcher(songName).find() &&
             !PORTUGUES_PATTERN.matcher(songName).find()) {
-          String artistAndSongName = artistName + " - " + songName;
-          if (!existingArtistAndSongNames.contains(artistAndSongName)) {
-            existingArtistAndSongNames.add(artistAndSongName);
+
+          Matcher matcher = MUSICA_PATH_PATTERN.matcher(path);
+          if (!matcher.matches()) {
+            throw new RuntimeException("Couldn't parse path '" + path + "'");
+          }
+          String sourceNum = "musica-" + matcher.group(1);
+          if (!loadedSourceNums.contains(sourceNum)) {
+            loadedSourceNums.add(sourceNum);
 
             JSONArray songTextLines = object.getJSONArray("song_text");
             StringBuilder songText = new StringBuilder();
@@ -80,6 +90,7 @@ public class LuceneExample {
             }
 
             Document doc = new Document();
+            doc.add(new StringField("source_num", sourceNum, Field.Store.YES));
             doc.add(new TextField("artist_name", artistName, Field.Store.YES));
             doc.add(new TextField("song_name", songName, Field.Store.YES));
             doc.add(new TextField("song_text", songText.toString(), Field.Store.YES));
