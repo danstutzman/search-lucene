@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.regex.Pattern;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -28,6 +29,12 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 public class LuceneExample {
+  private static Pattern ESPANOL_PATTERN =
+    Pattern.compile("es?p?a[nñ]ol", Pattern.CASE_INSENSITIVE);
+
+  private static Pattern PORTUGUES_PATTERN =
+    Pattern.compile("portugues", Pattern.CASE_INSENSITIVE);
+
   public static void main(String[] args) throws CorruptIndexException,
       LockObtainFailedException, IOException {
     if (args.length < 1) {
@@ -58,23 +65,26 @@ public class LuceneExample {
         String artistName = object.getString("artist_name");
         String songName = object.getString("song_name");
 
-        String artistAndSongName = artistName + " - " + songName;
-        if (!existingArtistAndSongNames.contains(artistAndSongName)) {
-          existingArtistAndSongNames.add(artistAndSongName);
+        if (!ESPANOL_PATTERN.matcher(songName).find() &&
+            !PORTUGUES_PATTERN.matcher(songName).find()) {
+          String artistAndSongName = artistName + " - " + songName;
+          if (!existingArtistAndSongNames.contains(artistAndSongName)) {
+            existingArtistAndSongNames.add(artistAndSongName);
 
-          JSONArray songTextLines = object.getJSONArray("song_text");
-          StringBuilder songText = new StringBuilder();
-          for (int i = 0; i < songTextLines.length(); i++) {
-            String songTextLine = songTextLines.getString(i);
-            songText.append(songTextLine.trim());
-            songText.append("\n");
+            JSONArray songTextLines = object.getJSONArray("song_text");
+            StringBuilder songText = new StringBuilder();
+            for (int i = 0; i < songTextLines.length(); i++) {
+              String songTextLine = songTextLines.getString(i);
+              songText.append(songTextLine.trim());
+              songText.append("\n");
+            }
+
+            Document doc = new Document();
+            doc.add(new TextField("artist_name", artistName, Field.Store.YES));
+            doc.add(new TextField("song_name", songName, Field.Store.YES));
+            doc.add(new TextField("song_text", songText.toString(), Field.Store.YES));
+            indexWriter.addDocument(doc);
           }
-
-          Document doc = new Document();
-          doc.add(new TextField("artist_name", artistName, Field.Store.YES));
-          doc.add(new TextField("song_name", songName, Field.Store.YES));
-          doc.add(new TextField("song_text", songText.toString(), Field.Store.YES));
-          indexWriter.addDocument(doc);
         }
       }
     }
